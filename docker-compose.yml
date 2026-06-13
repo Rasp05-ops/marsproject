@@ -1,0 +1,78 @@
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: campus_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - FRONTEND_ORIGIN=http://localhost:5173
+      - USE_MICROSERVICES=true
+    depends_on:
+      - mcp_library
+      - mcp_cafeteria
+      - mcp_events
+      - mcp_academics
+      - mcp_notices
+
+  frontend:
+    image: node:20
+    container_name: campus_frontend
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+    ports:
+      - "5173:5173"
+    command: ["sh", "-c", "npm install --silent && npm run dev -- --host 0.0.0.0"]
+
+  mcp_library:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mcp_library
+    working_dir: /app
+    command: ["uvicorn", "microservices.library_service:app", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
+
+  mcp_cafeteria:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mcp_cafeteria
+    working_dir: /app
+    command: ["uvicorn", "microservices.cafeteria_service:app", "--host", "0.0.0.0", "--port", "8002"]
+    ports:
+      - "8002:8002"
+
+  mcp_events:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mcp_events
+    working_dir: /app
+    command: ["uvicorn", "microservices.events_service:app", "--host", "0.0.0.0", "--port", "8003"]
+    ports:
+      - "8003:8003"
+
+  mcp_academics:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mcp_academics
+    working_dir: /app
+    command: ["uvicorn", "microservices.academics_service:app", "--host", "0.0.0.0", "--port", "8004"]
+    ports:
+      - "8004:8004"
+
+  mcp_notices:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mcp_notices
+    working_dir: /app
+    command: ["uvicorn", "microservices.notices_service:app", "--host", "0.0.0.0", "--port", "8005"]
+    ports:
+      - "8005:8005"
