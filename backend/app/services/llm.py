@@ -19,7 +19,7 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").strip().lower()  # 'google' or 'ope
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 GOOGLE_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-1.5-mini")
+GOOGLE_MODEL = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
 
 
 def _has_openai() -> bool:
@@ -44,22 +44,28 @@ def _call_openai_chat(messages: list[dict], model: str, temperature: float = 0.0
     return resp.choices[0].message.content
 
 
-def _call_google_chat(messages: list[dict], model: str, temperature: float = 0.0, max_tokens: int = 300) -> str:
-    # google.generativeai chat API may vary between versions; we attempt a best-effort call
-    genai.configure(api_key=GOOGLE_KEY)
-    try:
-        # prefer chat.create if available
-        chat_resp = genai.chat.create(model=model, messages=messages)
-        # the exact field with text can vary; try common locations
-        if hasattr(chat_resp, "candidates") and chat_resp.candidates:
-            return chat_resp.candidates[0].content
-        if hasattr(chat_resp, "content"):
-            return chat_resp.content
-        return str(chat_resp)
-    except Exception:
-        # fallback: try a generic create if API differs
-        resp = genai.create(model=model, prompt="\n".join(m["content"] for m in messages))
-        return getattr(resp, "content", str(resp))
+def _call_google_chat(messages: list[dict], model: str, temperature: float = 0.0, max_tokens: int = 300, api_key: str | None = None) -> str:
+    key = api_key or GOOGLE_KEY
+    genai.configure(api_key=key)
+    gmodel = genai.GenerativeModel(model)
+    # Convert OpenAI-style messages to a single prompt string for Gemini
+    prompt_parts = []
+    for m in messages:
+        role = m.get("role", "user")
+        content = m.get("content", "")
+        if role == "system":
+            prompt_parts.append(f"Instructions: {content}")
+        else:
+            prompt_parts.append(content)
+    prompt = "\n\n".join(prompt_parts)
+    response = gmodel.generate_content(
+        prompt,
+        generation_config=genai.types.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+        ),
+    )
+    return response.text
 
 
 def plan_tools(message: str, provider: str | None = None, api_key: str | None = None) -> list[tuple[str, dict[str, Any]]]:
