@@ -88,8 +88,18 @@ def debug_llm() -> dict[str, Any]:
         import google.generativeai as genai
         info["genai_imported"] = True
         genai.configure(api_key=google_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        
+        # List available models to help user find the right one
+        try:
+            models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+            info["available_models"] = models
+        except Exception as e:
+            info["list_models_error"] = str(e)
+
+        model_name = "gemini-pro"
+        model = genai.GenerativeModel(model_name)
         resp = model.generate_content("Say hello in one word.")
+        info["target_model"] = model_name
         info["response"] = resp.text
         info["status"] = "SUCCESS"
     except Exception as e:
