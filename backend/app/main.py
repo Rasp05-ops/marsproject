@@ -76,6 +76,30 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": "campus-iq-backend"}
 
 
+@app.get("/api/debug/llm")
+def debug_llm() -> dict[str, Any]:
+    """Temporary endpoint to diagnose LLM connectivity."""
+    import traceback
+    info: dict[str, Any] = {}
+    google_key = os.getenv("GOOGLE_API_KEY", "")
+    info["google_key_set"] = bool(google_key)
+    info["google_key_prefix"] = google_key[:8] + "..." if google_key else ""
+    try:
+        import google.generativeai as genai
+        info["genai_imported"] = True
+        genai.configure(api_key=google_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        resp = model.generate_content("Say hello in one word.")
+        info["response"] = resp.text
+        info["status"] = "SUCCESS"
+    except Exception as e:
+        info["genai_imported"] = True
+        info["status"] = "FAILED"
+        info["error"] = str(e)
+        info["traceback"] = traceback.format_exc()
+    return info
+
+
 @app.get("/api/dashboard")
 def dashboard() -> dict[str, Any]:
     academics = academics_server.summary()
