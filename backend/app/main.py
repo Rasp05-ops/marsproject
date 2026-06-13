@@ -96,7 +96,7 @@ def debug_llm() -> dict[str, Any]:
         except Exception as e:
             info["list_models_error"] = str(e)
 
-        model_name = "gemini-pro"
+        model_name = "gemini-2.0-flash"
         model = genai.GenerativeModel(model_name)
         resp = model.generate_content("Say hello in one word.")
         info["target_model"] = model_name
