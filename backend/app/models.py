@@ -63,6 +63,7 @@ class AssistantResponse(BaseModel):
     answer: str
     routed_tools: list[str]
     results: dict[str, Any]
+    llm_status: dict[str, Any] | None = None
 
 
 class McpToolCall(BaseModel):

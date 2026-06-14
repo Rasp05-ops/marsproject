@@ -22,5 +22,15 @@ class LibraryServer:
             "reserved": len([book for book in LIBRARY_BOOKS if book["status"] == "reserved"]),
         }
 
+    def reserve(self, book_id: str) -> dict | None:
+        for book in LIBRARY_BOOKS:
+            if book["id"] == book_id:
+                if book["status"] != "available":
+                    return None
+                book["status"] = "reserved"
+                book["due"] = "2026-06-15"
+                return book
+        return None
+
 
 library_server = LibraryServer()

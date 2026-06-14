@@ -35,11 +35,11 @@ Environment variables:
 - `OPENAI_API_KEY` — (optional) your OpenAI API key. When set, the backend will attempt to use the OpenAI
 	Python SDK to plan and generate assistant responses.
 - `OPENAI_MODEL` — (optional) model name (defaults to `gpt-4o-mini`).
-
-- `OPENAI_MODEL` — (optional) model name (defaults to `gpt-4o-mini`).
 - `LLM_PROVIDER` — (optional) choose the LLM provider: `google` or `openai`. If empty the backend will autodetect available providers (prefers Google if available).
 - `GOOGLE_API_KEY` — (optional) your Google API key to use Gemini/Google Generative AI.
-- `GOOGLE_MODEL` — (optional) Google model name (defaults to `gemini-1.5-mini`).
+- `GOOGLE_MODEL` — (optional) Google model name (defaults to `gemini-3.1-flash-lite`).
+- `FRONTEND_ORIGIN` — (optional) comma-separated allowed frontend origins, for example
+  `https://your-app.vercel.app,http://localhost:5173`.
 
 When adding an API key, install the updated requirements and restart the backend:
 

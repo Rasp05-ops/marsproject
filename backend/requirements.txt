@@ -4,4 +4,5 @@ pydantic==2.10.4
 python-dotenv==1.0.1
 httpx==0.28.1
 openai==1.31.0
+google-genai
 google-generativeai

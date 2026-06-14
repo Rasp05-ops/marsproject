@@ -76,6 +76,7 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [provider, setProvider] = useState(localStorage.getItem("llm_provider") || "");
+  const [llmStatus, setLlmStatus] = useState({ mode: "unknown", provider: "none" });
   const [lastRoutedTools, setLastRoutedTools] = useState([]);
   const [messages, setMessages] = useState([
     { role: "ai", text: "Hey! I'm connected to the campus backend now. Ask about books, menus, events, attendance, exams, fees, or notices." },
@@ -156,6 +157,7 @@ export default function App() {
         body: JSON.stringify({ message: userMsg, provider: provider || undefined }),
       });
       setLastRoutedTools(data.routed_tools || []);
+      setLlmStatus(data.llm_status || { mode: "unknown", provider: provider || "auto" });
       const toolLine = data.routed_tools?.length ? `\n\nSources: ${data.routed_tools.join(", ")}` : "";
       setMessages((items) => [...items, { role: "ai", text: `${data.answer}${toolLine}` }]);
     } catch (err) {
@@ -536,7 +538,12 @@ export default function App() {
               </div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F1F5F9" }}>Campus AI</div>
-                <div style={{ fontSize: 10, color: error ? "#F87171" : "#22C55E" }}>{error ? "Backend offline" : "Backend connected"}</div>
+                <div
+                  title={llmStatus?.reason || llmStatus?.last_error || ""}
+                  style={{ fontSize: 10, color: error ? "#F87171" : llmStatus?.mode === "llm" ? "#22C55E" : "#F59E0B" }}
+                >
+                  {error ? "Backend offline" : llmStatus?.mode === "llm" ? `LLM: ${llmStatus.provider}` : "LLM fallback"}
+                </div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

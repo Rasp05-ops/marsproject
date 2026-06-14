@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -42,7 +46,6 @@ def _http_request_with_retries(method: str, url: str, /, retries: int = 3, backo
                 raise
             time.sleep(backoff * (2 ** (attempt - 1)))
     raise last_exc
-import httpx
 
 USE_MICROSERVICES = os.getenv("USE_MICROSERVICES", "false").lower() in ("1", "true", "yes")
 MCP_BASES = {
@@ -53,18 +56,20 @@ MCP_BASES = {
     "notices": os.getenv("MCP_NOTICES_URL", "http://mcp_notices:8005"),
 }
 
-load_dotenv()
-
 app = FastAPI(
     title=os.getenv("APP_NAME", "CampusIQ Backend"),
     description="Unified campus intelligence backend with independent MCP-style data servers.",
     version="0.1.0",
 )
 
-frontend_origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+frontend_origins = [
+    origin.strip()
+    for origin in os.getenv("FRONTEND_ORIGIN", "http://localhost:5173").split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_origin, "http://127.0.0.1:5173"],
+    allow_origins=[*frontend_origins, "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -140,14 +145,13 @@ def reserve_book(book_id: str) -> dict[str, Any]:
                 raise HTTPException(status_code=404, detail="Book not found.")
             raise HTTPException(status_code=500, detail=str(e))
 
-    for book in LIBRARY_BOOKS:
-        if book["id"] == book_id:
-            if book["status"] != "available":
-                raise HTTPException(status_code=409, detail="Only available books can be reserved.")
-            book["status"] = "reserved"
-            book["due"] = "2026-06-15"
-            return {"message": "Book reserved successfully.", "book": book}
-    raise HTTPException(status_code=404, detail="Book not found.")
+    existing = next((book for book in LIBRARY_BOOKS if book["id"] == book_id), None)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Book not found.")
+    book = library_server.reserve(book_id)
+    if book is None:
+        raise HTTPException(status_code=409, detail="Only available books can be reserved.")
+    return {"message": "Book reserved successfully.", "book": book}
 
 
 @app.get("/api/cafeteria/menu/{meal}", response_model=MenuResponse)

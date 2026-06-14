@@ -7,8 +7,36 @@ from app.mcp_servers import SERVERS
 from app.services import llm
 
 
+HELP_ANSWER = (
+    "I can help with campus info: library books and reservations, cafeteria menus, "
+    "events, attendance, CGPA, exam schedules, fee deadlines, hostel notices, and other notices."
+)
+
+SMALL_TALK_ANSWERS = {
+    "hello": "Hello! Ask me about campus books, menus, events, attendance, exams, fees, or notices.",
+    "hi": "Hi! Ask me about campus books, menus, events, attendance, exams, fees, or notices.",
+    "hey": "Hey! Ask me about campus books, menus, events, attendance, exams, fees, or notices.",
+}
+
+
 def _contains_any(message: str, terms: list[str]) -> bool:
     return any(term in message for term in terms)
+
+
+def canned_answer(message: str) -> str:
+    text = " ".join(message.lower().strip().split())
+    stripped = text.rstrip("?!.,")
+
+    if stripped in SMALL_TALK_ANSWERS:
+        return SMALL_TALK_ANSWERS[stripped]
+
+    if stripped in {"how are you", "how is life", "what's up", "whats up"}:
+        return "I'm good and ready to help with campus info. Try asking about lunch, attendance, events, books, exams, fees, or notices."
+
+    if _contains_any(text, ["what can you do", "how can you help", "help me", "help"]):
+        return HELP_ANSWER
+
+    return ""
 
 
 def route_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
@@ -103,16 +131,33 @@ def answer_from_results(message: str, results: dict[str, Any]) -> str:
 
 
 def run_assistant(message: str, provider: str | None = None, api_key: str | None = None) -> dict[str, Any]:
+    direct_answer = canned_answer(message)
+    if direct_answer:
+        llm_status = llm.status(provider=provider, api_key=api_key)
+        llm_status["answer_source"] = "canned"
+        return {
+            "answer": direct_answer,
+            "routed_tools": [],
+            "results": {},
+            "llm_status": llm_status,
+        }
+
     # Try to get a plan from the LLM first. If LLM is not configured or planning
     # fails, fall back to the existing rule-based router.
     routed = llm.plan_tools(message, provider=provider, api_key=api_key) or route_tools(message)
     results = {tool_name: call_tool(tool_name, args) for tool_name, args in routed}
 
     # Let the LLM synthesize the final answer from results when available.
-    answer = llm.generate_answer(message, results, provider=provider, api_key=api_key) or answer_from_results(message, results)
+    llm_answer = llm.generate_answer(message, results, provider=provider, api_key=api_key)
+    answer = llm_answer or answer_from_results(message, results)
+    llm_status = llm.status(provider=provider, api_key=api_key)
+    llm_status["answer_source"] = "llm" if llm_answer else "fallback"
+    if not llm_answer:
+        llm_status["mode"] = "fallback"
 
     return {
         "answer": answer,
         "routed_tools": [tool_name for tool_name, _ in routed],
         "results": results,
+        "llm_status": llm_status,
     }

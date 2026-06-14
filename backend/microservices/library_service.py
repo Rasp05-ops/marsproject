@@ -24,15 +24,11 @@ def stats():
 
 @app.post("/books/{book_id}/reserve")
 def reserve(book_id: str):
-    for book in library_server._books if hasattr(library_server, "_books") else []:
-        if book["id"] == book_id:
-            if book["status"] != "available":
-                raise HTTPException(status_code=409, detail="Only available books can be reserved.")
-            book["status"] = "reserved"
-            book["due"] = "2026-06-15"
-            return {"message": "Book reserved successfully.", "book": book}
-    # fallback to library server method
-    try:
-        return library_server.reserve(book_id)
-    except Exception:
+    matches = library_server.search_books()
+    existing = next((book for book in matches if book["id"] == book_id), None)
+    if existing is None:
         raise HTTPException(status_code=404, detail="Book not found.")
+    book = library_server.reserve(book_id)
+    if book is None:
+        raise HTTPException(status_code=409, detail="Only available books can be reserved.")
+    return {"message": "Book reserved successfully.", "book": book}
