@@ -24,6 +24,21 @@ const statusColors = {
   reserved: { bg: "#1A2A3D", color: "#60A5FA" },
 };
 
+const toolLabels = {
+  "library.search_books": "Library",
+  "library.stats": "Library stats",
+  "cafeteria.get_menu": "Menu",
+  "events.list_events": "Events",
+  "academics.summary": "Academics",
+  "academics.low_attendance": "Attendance",
+  "notices.list_notices": "Notices",
+};
+
+function formatSources(tools = []) {
+  const labels = [...new Set(tools.map((tool) => toolLabels[tool] || tool))];
+  return labels.join(" + ");
+}
+
 async function fetchJSON(path, options) {
   const response = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -77,7 +92,6 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [provider, setProvider] = useState(localStorage.getItem("llm_provider") || "");
   const [llmStatus, setLlmStatus] = useState({ mode: "unknown", provider: "none" });
-  const [lastRoutedTools, setLastRoutedTools] = useState([]);
   const [messages, setMessages] = useState([
     { role: "ai", text: "Hey! I'm connected to the campus backend now. Ask about books, menus, events, attendance, exams, fees, or notices." },
   ]);
@@ -156,10 +170,8 @@ export default function App() {
         method: "POST",
         body: JSON.stringify({ message: userMsg, provider: provider || undefined }),
       });
-      setLastRoutedTools(data.routed_tools || []);
       setLlmStatus(data.llm_status || { mode: "unknown", provider: provider || "auto" });
-      const toolLine = data.routed_tools?.length ? `\n\nSources: ${data.routed_tools.join(", ")}` : "";
-      setMessages((items) => [...items, { role: "ai", text: `${data.answer}${toolLine}` }]);
+      setMessages((items) => [...items, { role: "ai", text: data.answer, sources: data.routed_tools || [] }]);
     } catch (err) {
       setMessages((items) => [...items, { role: "ai", text: `I could not reach the backend: ${err.message}` }]);
     } finally {
@@ -547,15 +559,6 @@ export default function App() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {lastRoutedTools?.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, alignItems: "center", marginRight: 6 }}>
-                    {lastRoutedTools.map((t) => (
-                      <span key={t} style={{ fontSize: 11, padding: "4px 8px", borderRadius: 999, background: "#131929", color: "#94A3B8", border: "1px solid #1E293B" }}>{t}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
               <button onClick={() => setAiOpen(false)} style={{ background: "none", border: "none", color: "#64748B", cursor: "pointer", padding: 4 }}>
                 <i className="ti ti-x" style={{ fontSize: 18 }} aria-hidden="true" />
               </button>
@@ -567,6 +570,11 @@ export default function App() {
               <div key={`${msg.role}-${index}`} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", marginBottom: 12 }}>
                 <div style={{ maxWidth: "88%", whiteSpace: "pre-wrap", padding: "9px 13px", borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px", background: msg.role === "user" ? "#1E3A5F" : "#131929", color: msg.role === "user" ? "#93C5FD" : "#CBD5E1", fontSize: 13, lineHeight: 1.5 }}>
                   {msg.text}
+                  {msg.role === "ai" && msg.sources?.length > 0 && (
+                    <div style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid #1E293B", color: "#64748B", fontSize: 11, lineHeight: 1.35 }}>
+                      Source: {formatSources(msg.sources)}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

@@ -89,26 +89,35 @@ def _call_openai_chat(messages: list[dict], model: str, temperature: float = 0.0
 
 
 def _call_google_chat(messages: list[dict], model: str, temperature: float = 0.0, max_tokens: int = 300, api_key: str | None = None) -> str:
-    prompt_parts = []
+    system_instruction = None
+    gemini_messages = []
+    
     for message in messages:
         role = message.get("role", "user")
         content = message.get("content", "")
-        prompt_parts.append(f"Instructions: {content}" if role == "system" else content)
-    prompt = "\n\n".join(prompt_parts)
-
+        if role == "system":
+            system_instruction = content
+        else:
+            gemini_messages.append({"role": "user" if role == "user" else "model", "parts": [content]})
+            
     if genai:
         client = genai.Client(api_key=api_key or GOOGLE_KEY)
-        response = client.models.generate_content(
-            model=model,
-            contents=prompt,
-            config={"temperature": temperature, "max_output_tokens": max_tokens},
-        )
+        kwargs = {
+            "model": model,
+            "contents": gemini_messages,
+            "config": {"temperature": temperature, "max_output_tokens": max_tokens}
+        }
+        if system_instruction:
+            kwargs["config"]["system_instruction"] = system_instruction
+            
+        response = client.models.generate_content(**kwargs)
         return getattr(response, "text", "") or ""
 
     legacy_genai.configure(api_key=api_key or GOOGLE_KEY)
-    gmodel = legacy_genai.GenerativeModel(model)
+    kwargs = {"system_instruction": system_instruction} if system_instruction else {}
+    gmodel = legacy_genai.GenerativeModel(model, **kwargs)
     response = gmodel.generate_content(
-        prompt,
+        gemini_messages,
         generation_config=legacy_genai.types.GenerationConfig(
             temperature=temperature,
             max_output_tokens=max_tokens,
